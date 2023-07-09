@@ -4,23 +4,54 @@ Block,
 runTask,
 Location, Vector3, system } from "yoni-mcscripts-lib";
 
+import { ItemUseSimulator } from "./ItemUseSimulator.js";
+
 class VeinMining {
     veinBlocks: VeinBlocks;
     constructor(player: YoniPlayer,
-        location: Location,
-        option?: VeinMiningOption){
+        option: VeinMiningOption){
+        this.player = player,
+        this.veinBlocks = option.veinBlocks;
+        this.simulator = new ItemUseSimulator(player);
+        this.simulator.tool = player.getItemInMainHand();
     }
     runVein(): VeinMiningProcess {
+        let process = new VeinMiningProcess(this);
+        process.ececutor.run();
+        return process;
     }
     getTool(): Minecraft.ItemStack {
     }
     setToolBroken(isBroken: boolean): void {
     }
-    giveBackTool(item: Minecraft.ItemStack) {
+    giveBackTool(item: Minecraft.ItemStack | undefined): void {
     }
     destroyBlocks(blocks: YoniBlock[]){
+        if (!this.isToolAvailable()){
+            throw new VeinMiningCantPerformAnymoreError(VeinMiningStatus.toolBroken);
+        }
+        
+        this.simulator.tool = this.getTool();
+        
+        this.simulator.destroyBlocks(blocks);
+        this.giveBackTool(this.simulator.tool);
+        this.addAffections(this.simulator.affections);
+        
+        if (!this.simulator.isToolAvailable()){
+            this.setToolBroken(true);
+            throw new VeinMiningCantPerformAnymoreError(VeinMiningStatus.toolBroken);
+        }
     }
+    addAffections(affections: SimulateAffection[]){
+        this.parsedVeinBlockCount += affections.length
+        affections.forEach(aff => aff.performOn(this.player));
+    }
+    parsedVeinBlockCount: number = 0;
+    simulator: ItemUseSimulator;
     receiveError(err: any){
+        if (err instanceof VeinMiningCantPerformAnymoreError){
+            this.emitVeinMiningInterruptedEvent(err.reason);
+        }
     }
 }
 
@@ -32,11 +63,12 @@ interface VeinMiningProcessOnCompleteFunction {
 }
 
 class VeinMiningProcess {
-    onComplete(cb: VeinMiningProcessOnCompleteFunction): void {
+    constructor(miningData: VeinMining){
+        this.executor = new VeinMiningExecutor(miningData);
+        this.miningData = miningData;
     }
     readonly miningData: VeinMining;
-    readonly player: YoniPlayer;
-    readonly tool: Minecraft.ItemStack | undefined;
+    readonly executor: VeinMiningExecutor;
 }
 
 interface VeinMiningOption {
@@ -95,7 +127,7 @@ class VeinMiningExecutor {
         this.miningData = miningData;
     }
     
-    miningData: VeinMining;
+    readonly miningData: VeinMining;
     
     static timer = new VeinMiningExecutorTimer(6); // only execute 6ms per tick
     async run(){
@@ -110,7 +142,7 @@ class VeinMiningExecutor {
                 
                 // wait for next ticking
                 let { promise, resolve } = VeinMiningExecutor.generatePendingPromise();
-                runTask(resolve);
+                runTask(() => resolve());
                 await promise;
             }
             
@@ -167,14 +199,6 @@ interface VeinMiningDestroyOption {
     player?: YoniPlayer;
 }
 
-EventListener.register(Minecraft.world.afterEvent.blockBreak, onBlockBreak);
-
-function onBlockBreak(event: Minecraft.BlockAfterEvent){
-    const player = EntityBase.getYoniEntity(event.player) as YoniPlayer;
-    const location = Location.fromBlock(block);
-    const blockType = event.brokenBlockPermutation.type;
-    // VeinMining.startVeinMining(player, location, blockType);
-}
 
 interface VeinBlocks {
     next(count: number): YoniBlock[];
