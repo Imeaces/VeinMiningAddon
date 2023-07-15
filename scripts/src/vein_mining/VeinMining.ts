@@ -12,12 +12,14 @@ class VeinMining {
         option: VeinMiningOption){
         this.player = player,
         this.veinBlocks = option.veinBlocks;
-        this.simulator = new ItemUseSimulator(player);
-        this.simulator.tool = player.getItemInMainHand();
+        this.destructionPerformer = option.destructionPerformer;
+        //this.simulator = new ItemUseSimulator(player);
+        //this.simulator.tool = player.getItemInMainHand();
+        //this.applyAffections = option.applyAffections;
     }
     runVein(): VeinMiningProcess {
         let process = new VeinMiningProcess(this);
-        process.ececutor.run();
+        process.executor.run();
         return process;
     }
     getTool(): Minecraft.ItemStack {
@@ -43,8 +45,7 @@ class VeinMining {
         }
     }
     addAffections(affections: SimulateAffection[]){
-        this.parsedVeinBlockCount += affections.length
-        affections.forEach(aff => aff.performOn(this.player));
+        this.applyAffections(affections, this);
     }
     parsedVeinBlockCount: number = 0;
     simulator: ItemUseSimulator;
@@ -53,6 +54,20 @@ class VeinMining {
             this.emitVeinMiningInterruptedEvent(err.reason);
         }
     }
+}
+
+
+function applyAffection(affections: Affection[], miningData: VeinMining){
+        miningData.parsedVeinBlockCount += affections.length;
+        let removeBlocks = affections.filter(aff => aff.type === AffectionType.removeBlocks)
+            .map(aff => aff.blcoks).flat();
+        let createItems = affections.filter(aff => aff.type === AffectionType.createItem)
+            .map(aff => aff.items).flat();
+        let gainXp = affections.filter(aff => aff.type === AffectionType.custom)
+            .filter(aff => aff.subtype === "spawnXpOrbs")
+            .reduce((lval, aff) => lval + aff.xp, 0);
+        
+        affections.forEach(aff => aff.performOn(this.player));
 }
 
 class VeinMiningError extends Error {
