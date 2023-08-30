@@ -26,6 +26,7 @@ export enum VeinBlockChangeType {
     removeBlock,
     lootItem,
     lootXp,
+    custom
 }
 export interface VeinContext {
     contextData: any
