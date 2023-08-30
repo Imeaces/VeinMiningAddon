@@ -3,7 +3,7 @@
   "extends": "../../yoni-mcscripts-lib/tsconfig",
   "compilerOptions": {
     "outDir": "../scripts/node_modules/yoni-mcscripts-lib/",
-   // "declaration": true,
+    "declaration": true,
     "declarationDir": "../scripts/node_modules/yoni-mcscripts-lib/@types/yoni-mcscripts-lib"
   }
 }

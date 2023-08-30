@@ -24,7 +24,7 @@
     "@minecraft/server-gametest": "1.0.0-beta.1.20.10-preview.21",
     "@minecraft/server-ui": "1.1.0-beta.1.20.10-preview.21",
     "@minecraft/vanilla-data": "1.20.10-preview.21",
-    "yoni-mcscripts-lib": "0.11.1-beta"
+    "yoni-mcscripts-lib": "^0.11.1-beta"
   },
   "devDependencies": {
     "typescript": "4.9.3"
