@@ -1,0 +1,177 @@
+
+export class VeinMining {
+    veinBlocks: VeinBlocks;
+    player: YoniPlayer;
+    option: VeinMiningOption;
+    constructor(player: YoniPlayer,
+        option: VeinMiningOption){
+        this.player = player,
+        this.veinBlocks = option.veinBlocks;
+        this.option = option;
+    }
+    getTool(): Minecraft.ItemStack | null {
+        let tool = this.player.getItemInMainHand() ?? null;
+        let toolType = tool?.type ?? null;
+        
+        if (this.toolType === undefined)
+            this.toolType = toolType;
+        else if (toolType !== this.toolType)
+            throw new VeinMiningToolTypeChangedError(this.toolType, toolType);
+            
+        return tool;
+    }
+    toolType?: Minecraft.ItemType | null;
+    giveBackTool(tool?: Minecraft.ItemStack | null){
+        this.player.setItemInMainHand(tool ?? undefined);
+    }
+    destroyBlocks(blocks: YoniBlock[]){
+        this.option.performBlockDestroy(this, blocks);
+    }
+    runVein(): VeinMiningProcess {
+    
+        this.process?.stop();
+        
+        this.process = new VeinMiningProcess(this);
+        this.process.executor.run();
+        return this.process;
+    }
+    //@ts-ignore
+    process: VeinMiningProcess;
+    receiveError(err: any){
+      /*  if (err instanceof VeinMiningCantPerformAnymoreError){
+            this.emitVeinMiningInterruptedEvent(err.reason);
+        }*/
+    }
+}
+
+export class VeinMiningProcess {
+    constructor(miningData: VeinMining){
+        this.executor = new VeinMiningExecutor(miningData);
+        this.miningData = miningData;
+    }
+    readonly miningData: VeinMining;
+    readonly executor: VeinMiningExecutor;
+    stop(){
+        this.executor.stopped = true;
+    }
+}
+
+export class VeinMiningExecutor {
+    constructor(miningData: VeinMining, generator: Generator<any>){
+        this.miningData = miningData;
+    }
+    
+    readonly miningData: VeinMining;
+    
+    stopped: boolean = false;
+    
+    static timer = new VeinMiningExecutorTimer(6); // only execute 6ms per tick
+    async run(){
+        try {
+        
+            while (this.miningData.veinBlocks.hasMore()){
+                if (this.stopped)
+                    return;
+                
+                this.continueNext();
+            
+                //降低连锁数量以减少tps降低
+                if (this.autoModifyMaxCountPerTick)
+                    this.maxCountPerTick = Math.max(this.minCountPerTick, this.maxCountPerTick - 20);
+                
+                // wait for next ticking
+                let { promise, resolve } = VeinMiningExecutor.generatePendingPromise();
+                runTask(() => resolve());
+                await promise;
+            }
+            
+        } catch (err){
+            this.stopped = true;
+            VeinMiningExecutor.timer.unhandle();
+            this.miningData.receiveError(err);
+        }
+        
+    }
+    continueNext(){
+        VeinMiningExecutor.timer.handle();
+        
+        while (this.miningData.veinBlocks.hasMore()){
+            let blocks = this.miningData.veinBlocks.next(this.maxCountPerTick);
+            this.destroyVeinBlocks(blocks);
+            
+            //超时，结束
+            if (VeinMiningExecutor.timer.isTimeLimitExceed())
+                break;
+            
+            //增加连锁数量以提高效率
+            if (this.autoModifyMaxCountPerTick)
+                this.maxCountPerTick += 20;
+            
+        }
+        
+        VeinMiningExecutor.timer.unhandle();
+    }
+    
+    autoModifyMaxCountPerTick = true;
+    
+    maxCountPerTick = 200;
+    
+    minCountPerTick = 20;
+    
+    destroyVeinBlocks(blocks: YoniBlock[]){
+        this.miningData.destroyBlocks(blocks);
+    }
+        
+    static generatePendingPromise(): { promise: Promise<void>, reject: Function, resolve: Function } {
+        let resolve: Function, reject: Function;
+        let promise: Promise<void> = new Promise((re, rj) => {
+            resolve = () => void re();
+            reject = () => void rj();
+        });
+        //@ts-ignore 这是基于Promise对象会在创建时就运行传入的函数而实现的
+        return { promise, reject, resolve };
+    }
+}
+
+export interface VeinMiningDestroyOption {
+    tool?: Minecraft.ItemStack;
+    player?: YoniPlayer;
+}
+
+
+export interface VeinBlocks {
+    next(count: number): YoniBlock[];
+    hasMore(): boolean;
+}
+
+import { YoniBlock, Minecraft } from "yoni-mcscripts-lib";
+
+export interface VeinBlockChangeProcessor {
+    changeBlock(block: YoniBlock): VeinBlockChange[]
+}
+
+export interface VeinBlockChange {
+    type: VeinBlockChangeType
+    data: any
+}
+
+export enum VeinBlockChangeType {
+    replaceBlock,
+    removeBlock,
+    lootItem,
+    lootXp,
+}
+
+export interface VeinBlockSelfEffect {
+    affactSelfOnce(): boolean;
+}
+
+export interface VeinBlocksSet {
+    next(count: number): YoniBlock[];
+    hasMore(): boolean;
+}
+
+export interface VeinBlocks {
+    next(): Minecraft.Block;
+    hasNext(): boolean;
+}

@@ -1,0 +1,65 @@
+import { Location, Minecraft } from "yoni-mcscripts-lib";
+import VeinBlocks from "../VeinBlocks.js";
+
+class CenterAroundVeinBlocks implements VeinBlocks {
+    constructor(blockTypes: Minecraft.BlockType[], center: Location){
+        this.detectingBlocks.push(center.getBlock());
+        this.blockTypes = blockTypes;
+    }
+    blockTypes: Minecraft.BlockType[];
+    next(count: number = 10): Minecraft.Block[] {
+        const { detectingBlocks } = this;
+        const blocks: Minecraft.Block[] = [];
+        while (blocks.length < count && detectingBlocks.length > 0){
+             let oneDetectingBlock = detectingBlocks.shift() as Minecraft.Block;
+             let aroundBlocks = CenterAroundVeinBlocks.getAroundBlocks(oneDetectingBlock);
+             let undetectBlocks = aroundBlocks.filter(v=>!this.has(v));
+             let targetBlocks = undetectBlocks.filter(this.matchBlock);
+             blocks.push(...targetBlocks);
+             detectingBlocks.push(...targetBlocks);
+             undetectBlocks.forEach(this.add.bind(this));
+        }
+        return blocks;
+    }
+    matchBlock(block: Minecraft.Block): boolean {
+        return this.blockTypes.includes(block.type);
+    }
+    hasMore(): boolean {
+        return this.detectingBlocks.length > 0;
+    }
+    blocksRecord: Record<number, Record<number, number[]>> = {};
+    add(block: Minecraft.Block){
+        const { blocksRecord } = this;
+        
+        const { x, y, z } = block;
+        
+        if (!(x in blocksRecord))
+            blocksRecord[x] = {};
+        
+        if (!(y in blocksRecord[x]))
+            blocksRecord[x][y] = [];
+        
+        blocksRecord[x][y].push(z);
+    }
+    has(block: Minecraft.Block): boolean {
+        const { blocksRecord } = this;
+        
+        const { x, y, z } = block;
+        return x in blocksRecord
+            && y in blocksRecord[x]
+            && blocksRecord[x][y].includes(z);
+    }
+    static getAroundBlocks(block: Minecraft.Block): Minecraft.Block[] {
+        const blockLocation = new Location(block);
+        return [
+        blockLocation.offset(-1,0,0).getBlock(),
+        blockLocation.offset(1,0,0).getBlock(),
+        blockLocation.offset(0,-1,0).getBlock(),
+        blockLocation.offset(0,1,0).getBlock(),
+        blockLocation.offset(0,0,-1).getBlock(),
+        blockLocation.offset(0,0,1).getBlock()
+        ];
+    }
+    blocks: Minecraft.Block[] = [];
+    detectingBlocks: Minecraft.Block[] = [];
+}

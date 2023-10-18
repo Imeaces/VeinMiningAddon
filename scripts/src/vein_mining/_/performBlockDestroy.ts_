@@ -1,0 +1,5 @@
+import { VeinMining } from "./VeinMining.js";
+import { YoniBlock } from "yoni-mcscripts-lib";
+
+export function performBlockDestroy(miningData: VeinMining, blocks: YoniBlock[]){
+}

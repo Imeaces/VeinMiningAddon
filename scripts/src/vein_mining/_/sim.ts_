@@ -1,0 +1,223 @@
+//定义一个Modifier接口，表示对影响的修改
+interface Modifier {
+  //修改影响的属性或行为
+  modify(affection: Affection): void;
+}
+
+//定义一个Affection接口，表示物品对方块或世界的影响
+interface Affection {
+  //执行影响的逻辑
+  perform(): void;
+  //添加一个修改器
+  addModifier(modifier: Modifier): void;
+  //移除一个修改器
+  removeModifier(modifier: Modifier): void;
+}
+
+//定义一个Simulatable接口，让物品和方块都实现它
+interface Simulatable {
+  //模拟使用，并返回造成的所有影响
+  simulateUse(simulator: Simulator): Affection[];
+}
+
+//定义一个Simulator接口，让不同的模拟器都实现它
+interface Simulator {
+  //模拟物品对方块的使用，并获取造成的所有影响
+  simulate(item: Item, block: Block): Affection[];
+}
+
+//定义一个SimpleSimulator类，实现Simulator接口
+class SimpleSimulator implements Simulator {
+  //存储造成的所有影响
+  private affections: LinkedList<Affection>;
+
+  //构造方法，初始化链表
+  constructor() {
+    this.affections = new LinkedList<Affection>();
+  }
+
+  //模拟物品对方块的使用，并获取造成的所有影响
+  simulate(item: Item, block: Block): Affection[] {
+    //调用物品和方块的simulateUse方法，并将返回的影响添加到链表中
+    this.affections.addAll(item.simulateUse(this));
+    this.affections.addAll(block.simulateUse(this));
+    //返回链表中的所有影响
+    return this.affections.toArray();
+  }
+}
+
+//定义一个Item接口，表示游戏中的物品
+interface Item extends Simulatable {
+  //其他物品相关的方法或属性
+}
+
+//定义一个Block接口，表示游戏中的方块
+interface Block extends Simulatable {
+  //其他方块相关的方法或属性
+}
+
+//定义一些物品和方块的类，实现Item、Block和Simulatable接口
+
+class Pickaxe implements Item {
+  //镐子等级
+  private level: number;
+  //镐子附魔列表
+  private enchantments: List<Modifier>;
+
+  //构造方法，初始化等级和附魔列表
+  constructor(level: number, enchantments: List<Modifier>) {
+    this.level = level;
+    this.enchantments = enchantments;
+  }
+
+  //模拟使用镐子，并返回造成的所有影响
+  simulateUse(simulator: Simulator): Affection[] {
+    let affections: Affection[] = [];
+    if (this.level >= 2) {
+      //如果镐子等级大于等于2，就添加一个增加掉落物品数量的影响，并添加镐子附魔到该影响中
+      let increaseDropAffection = new IncreaseDropAffection(new Diamond());
+      for (let enchantment of this.enchantments) {
+        increaseDropAffection.addModifier(enchantment);
+      }
+      affections.push(increaseDropAffection);
+    }
+    return affections;
+  }
+}
+
+class Stone implements Block {
+  //模拟使用石头，并返回造成的所有影响
+  simulateUse(simulator: Simulator): Affection[] {
+    let affections: Affection[] = [];
+    //添加一个移除石头方块的影响
+    affections.push(new RemoveBlockAffection(this));
+    //添加一个添加鹅卵石掉落物品的影响
+    affections.push(new AddDropAffection(new Cobblestone()));
+    return affections;
+  }
+}
+
+//定义一些影响的类，实现Affection接口
+
+class RemoveBlockAffection implements Affection {
+  //要移除的方块
+  private block: Block;
+  //影响的修改器列表
+  private modifiers: List<Modifier>;
+
+  //构造方法，初始化方块和修改器列表
+  constructor(block: Block) {
+    this.block = block;
+    this.modifiers = new ArrayList<Modifier>();
+  }
+
+  //执行移除方块的逻辑
+  perform(): void {
+    //调用修改器的modify方法，修改影响的属性或行为
+    for (let modifier of this.modifiers) {
+      modifier.modify(this);
+    }
+    //调用游戏的API，移除方块
+    game.removeBlock(this.block);
+  }
+
+  //添加一个修改器
+  addModifier(modifier: Modifier): void {
+    this.modifiers.add(modifier);
+  }
+
+  //移除一个修改器
+  removeModifier(modifier: Modifier): void {
+    this.modifiers.remove(modifier);
+  }
+}
+
+class AddDropAffection implements Affection {
+  //要添加的掉落物品
+  private item: Item;
+  //影响的修改器列表
+  private modifiers: List<Modifier>;
+
+  //构造方法，初始化物品和修改器列表
+  constructor(item: Item) {
+    this.item = item;
+    this.modifiers = new ArrayList<Modifier>();
+  }
+
+  //执行添加掉落物品的逻辑
+  perform(): void {
+    //调用修改器的modify方法，修改影响的属性或行为
+    for (let modifier of this.modifiers) {
+      modifier.modify(this);
+    }
+    //调用游戏的API，添加掉落物品
+    game.addDrop(this.item);
+  }
+
+  //添加一个修改器
+  addModifier(modifier: Modifier): void {
+    this.modifiers.add(modifier);
+  }
+
+  //移除一个修改器
+  removeModifier(modifier: Modifier): void {
+    this.modifiers.remove(modifier);
+  }
+}
+
+class IncreaseDropAffection implements Affection {
+  //要增加的掉落物品
+  private item: Item;
+  //影响的修改器列表
+  private modifiers: List<Modifier>;
+
+  //构造方法，初始化物品和修改器列表
+  constructor(item: Item) {
+    this.item = item;
+    this.modifiers = new ArrayList<Modifier>();
+  }
+
+  //执行增加掉落物品的逻辑
+  perform(): void {
+    //调用修改器的modify方法，修改影响的属性或行为
+    for (let modifier of this.modifiers) {
+      modifier.modify(this);
+    }
+    //调用游戏的API，增加掉落物品
+    game.increaseDrop(this.item);
+  }
+
+  //添加一个修改器
+  addModifier(modifier: Modifier): void {
+    this.modifiers.add(modifier);
+  }
+
+  //移除一个修改器
+  removeModifier(modifier: Modifier): void {
+    this.modifiers.remove(modifier);
+  }
+}
+
+//定义一些附魔的类，实现Modifier接口
+
+class FortuneEnchantment implements Modifier {
+  //附魔等级
+  private level: number;
+
+  //构造方法，初始化等级
+  constructor(level: number) {
+    this.level = level;
+  }
+
+  //修改影响的属性或行为，如果是增加掉落物品数量的影响，就根据等级增加更多数量
+  modify(affection: Affection): void {
+    if (affection instanceof IncreaseDropAffection) {
+      let increaseDropAffection = affection as IncreaseDropAffection;
+      let item = increaseDropAffection.getItem();
+      let amount = item.getAmount();
+      amount += Math.random() * (this.level +1); 
+      item.setAmount(amount);
+    }
+    
+  
+}

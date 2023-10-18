@@ -1,0 +1,31 @@
+import { YoniBlock, Minecraft } from "yoni-mcscripts-lib";
+
+export interface VeinBlockChangeProcessor {
+    changeBlock(block: YoniBlock): VeinBlockChange[]
+}
+
+export interface VeinBlockChange {
+    type: VeinBlockChangeType
+    data: any
+}
+
+export enum VeinBlockChangeType {
+    replaceBlock,
+    removeBlock,
+    lootItem,
+    lootXp,
+}
+
+export interface VeinBlockSelfEffect {
+    affactSelfOnce(): boolean;
+}
+
+export interface VeinBlocksSet {
+    next(count: number): YoniBlock[];
+    hasMore(): boolean;
+}
+
+export interface VeinBlocks {
+    next(): Minecraft.Block;
+    hasNext(): boolean;
+}

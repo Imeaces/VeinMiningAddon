@@ -1,0 +1,6 @@
+import { YoniBlock } from "yoni-mcscripts-lib";
+
+export default interface VeinBlocks {
+    next(count: number): YoniBlock[];
+    hasMore(): boolean;
+}
